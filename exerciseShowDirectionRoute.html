@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="viewport" content="initial-scale=1.0" />
+    <meta charset="UTF-8" />
+    <title>Basic Map</title>
+    <link href="https://maps-gl.nextbillion.io/maps/v2/api/css" rel="stylesheet"/>
+    
+    <script src="https://code.jquery.com/jquery-3.6.0.js"></script>
+    <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+      }
+      #map {
+        width: 100vw;
+        height: 100vh;
+      } 
+
+#fromAddress:focus {outline: 3px solid #ddd;}
+#toAddress:focus {outline: 3px solid #ddd;}
+
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropbtn {
+  background-color: #04AA6D;
+  color: white;
+  padding: 16px;
+  font-size: 16px;
+  border: none;
+  cursor: pointer;
+} 
+
+.dropdown a:hover {background-color: #ddd;}
+
+.show {display: block;}
+    </style>
+  </head>
+  <body> 
+   <!-- <div class="dropdown">-->
+      <div id="myDropdown" class="dropdown-content">
+      <input type="text"  style="width:325px ;" placeholder="from address..." id="fromAddress" onkeyup="filterFunctionFromAddress();">
+      <input type="text" style="width:325px ;"  placeholder="to address..." id="toAddress" onkeyup="filterFunctiontoAddress();">
+      <button id="btnSearchAddress" title="Submit" style="width: 74px;height: 17px;" type="submit" value="Submit" >Submit </button> 
+      <button id="clearAll" title="Clear" style="width: 74px;height: 17px;" type="reset" value="Reset">Reset </button> 
+      </div>
+ <!-- </div>-->
+    <div id="map">
+      
+    </div>
+  
+    <script src="https://maps-gl.nextbillion.io/maps/v2/api/js"></script>
+    <script>
+      ;(    
+        function () {
+          var map;var marker;
+          var currentMarkers=[]; var frmLatitude,frmLong, toLatitude,toLong; 
+
+        // To use NextBillion Maps GL, an apiKey is required.
+        nextbillion.setApiKey('43441f14758c4963bda23c40248a58b9')
+          map = new nextbillion.maps.Map({
+            container: document.getElementById('map'),
+            style: "https://api.nextbillion.io/maps/streets/style.json",
+            zoom: 12,
+            center: { lat: 28.664, lng: 77.17639 }
+          })
+        const element = document.getElementById("btnSearchAddress");
+          if(element!= null){
+            element.addEventListener("click", getRoute); 
+          }
+
+        const elementCLear = document.getElementById("clearAll");
+        if(elementCLear!= null){
+          elementCLear.addEventListener("click", reset); 
+        }
+
+        //clear the polyline and marker drawn on the map
+        function reset(){
+          if(map._map.getLayer("route")!=null){
+            map._map.removeLayer("route");
+            map._map.removeSource("route");
+          }
+          if(currentMarkers!==null){
+            for (var i = currentMarkers.length - 1; i >= 0; i--) {
+                  currentMarkers[i].remove();
+                  marker.remove();
+            }
+            currentMarkers = [];
+          }
+           
+            document.getElementById("fromAddress").innerText ="";
+            document.getElementById("toAddress").innerText ="";          
+        }
+       
+
+      //for auto complete on search text
+      function searchaddress(){
+        var addresstext = document.getElementById("fromAddress");
+        var lat; var long;
+        if(addresstext.value !==""){
+           //pass the value to api and get the result
+            $.getJSON("https://api.nextbillion.io/h/geocode?key=43441f14758c4963bda23c40248a58b9&q="+addresstext.value+ "in=countryCode:IND", function(resultAddress){ 
+              $.each(resultAddress, function(x, location){ 
+                lat = location[0].position.lat; 
+                long = location[0].position.lng;
+              }); 
+              addSimpleMarker(lat,long);
+          }); 
+        } 
+      };
+      
+      
+     //get route for the select origin and destination
+      function getRoute(){
+        var fromAddress = document.getElementById("fromAddress");
+        var toAddress = document.getElementById("toAddress");
+     
+         //pass the value to api and get the result
+         $.getJSON("https://api.nextbillion.io/h/geocode?key=43441f14758c4963bda23c40248a58b9&q="+fromAddress.value + "in=countryCode:IND", function(resultAddress){
+          if(resultAddress.items.length==0){
+            alert("pls check the address");
+          } 
+          else{
+            $.each(resultAddress, function(x, location){ 
+              frmLatitude = location[0].position.lat; 
+              frmLong = location[0].position.lng;
+            }); 
+            addSimpleMarker(frmLatitude,frmLong);
+            $.getJSON("https://api.nextbillion.io/h/geocode?key=43441f14758c4963bda23c40248a58b9&q="+toAddress.value + "in=countryCode:IND", function(toLocation){
+              if(toLocation.items.length==0){
+                alert("pls check the address");
+              } 
+              else{
+              $.each(toLocation, function(y, locationDetails){ 
+                toLatitude = locationDetails[0].position.lat; 
+                toLong = locationDetails[0].position.lng;
+              }); 
+                addSimpleMarker(toLatitude,toLong);
+                showROuteonMap(frmLatitude, frmLong, toLatitude,toLong);
+            }
+            });
+          
+          }        
+        });  
+        
+      } 
+
+      //Draw route polyline and add on the map
+       function showROuteonMap(frmLatitude,frmLong,toLatitude,toLong){
+        const directionsService = new nextbillion.maps.DirectionsService();
+        if(map._map.getLayer("route")!=null){
+            map._map.removeLayer("route");
+            map._map.removeSource("route");
+          }
+          
+
+          // request the directions api
+          directionsService
+            .route({
+              origin: { lat: frmLatitude, lng:frmLong},             
+              destination: { lat: toLatitude, lng:toLong }
+            })
+            .then((response) => {
+              // render the result
+              map.map.addSource("route", {
+                type: "geojson",
+                data: {
+                  type: "Feature",
+                  properties: {},
+                  geometry: {
+                    type: "LineString",
+                    coordinates: nextbillion.utils.polyline
+                      .decode(response.routes[0].geometry, 6)
+                      .map((c) => c.reverse())
+                  }
+                }
+              });
+              map.map.addLayer({
+                id: "route",
+                type: "line",
+                source: "route",
+                layout: {
+                  "line-join": "round",
+                  "line-cap": "round"
+                },
+                paint: {
+                  "line-color": "#8D5A9E",
+                  "line-width": 8
+                }
+              });
+            });
+       }  
+      
+      //add simpleMarker on map
+      function addSimpleMarker(latitude,longitude) {
+        var center = new nextbillion.maps.LngLat(longitude,latitude);
+          marker = new nextbillion.maps.Marker({draggable: true})
+             .setLngLat({ lat:latitude, lng: longitude }) 
+             .addTo(map.map)
+            // map.setCenter(center:sw,eventData: any);
+             zoomToMap(latitude,longitude);
+             currentMarkers.push(marker);
+
+             marker.on('dragend', onDragEnd);
+         };
+
+         function zoomToMap(latitude,longitude){
+          var center = new nextbillion.maps.LngLat(longitude,latitude); 
+           map._map.setCenter(center);
+         }
+
+         function onDragEnd() {           
+            //alert("Longitude: "+ lngLat.lng + "<br />Latitude: " + lngLat.lat);
+            var firMarkerLat, firMarkerLong, secMarkerLat, secMarkerLong;
+            for (var i = currentMarkers.length - 1; i >= 0; i--) {
+              if(i==0){
+                const lngLat = currentMarkers[0].getLngLat();
+                firMarkerLat = lngLat.lat;
+                firMarkerLong = lngLat.lng
+              }
+              else{
+                const lngLat2 = currentMarkers[1].getLngLat();
+                secMarkerLat = lngLat2.lat;
+                secMarkerLong = lngLat2.lng
+              }
+              
+            }
+            showROuteonMap(firMarkerLat,firMarkerLong,secMarkerLat,secMarkerLong);
+          }
+
+      })()
+
+     
+ 
+      
+
+      //for auto complete on search text
+      function filterFunctionFromAddress(){
+        var fromAddress = document.getElementById("fromAddress"); 
+        //pass the value to api and get the result
+        $.getJSON("https://api.nextbillion.io/h/autocomplete?q="+fromAddress.value+"&key=43441f14758c4963bda23c40248a58b9&in=countryCode:IND", function(result){
+          var fromLocations =[];
+          $.each(result, function(i, field){
+            //$("div").append(field + " ");
+            $.each(field, function (key, val) {
+              fromLocations.push(val.address.label); 
+            });
+          });
+          $( "#fromAddress" ).autocomplete({  
+              source: fromLocations   
+            }); 
+            designdropdown(fromAddress);
+        });
+      }
+        //for auto complete on search text
+      function filterFunctiontoAddress(){
+        var toAddress = document.getElementById("toAddress"); 
+        //pass the value to api and get the result
+        $.getJSON("https://api.nextbillion.io/h/autocomplete?q="+toAddress.value+"&key=43441f14758c4963bda23c40248a58b9&in=countryCode:IND", function(result){
+          var toLocations =[];
+          $.each(result, function(i, field){
+            //$("div").append(field + " ");
+            $.each(field, function (key, val) {
+              toLocations.push(val.address.label); 
+            });
+          });
+          $( "#toAddress").autocomplete({  
+              source: toLocations   
+            }); 
+            designdropdown(toAddress);
+        });
+        
+        
+      }
+
+        function designdropdown(element) {
+          var input, filter, ul, li, a, i;
+          input = document.getElementById(element.id);
+          filter = input.value.toUpperCase();
+          div = document.getElementById("myDropdown");
+          a = div.getElementsByTagName("a");
+          for (i = 0; i < a.length; i++) {
+            txtValue = a[i].textContent || a[i].innerText;
+            if (txtValue.toUpperCase().indexOf(filter) > -1) {
+              a[i].style.display = "";
+            } else {
+                a[i].style.display = "none";
+            }
+        }
+      };
+    
+
+      
+    </script>
+  </body>
+</html>
