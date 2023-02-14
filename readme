@@ -1,0 +1,11 @@
+#Load the taskDirectionRoute.html directly on the browser
+
+#Only requirment is to have Internet #enter the origin (from address) textbox and destination (to address) textbox
+
+#click on search
+
+#Direction Route will display based on the start and end location mentioned
+
+#We can move the marker from one location to another and the route will generate again 
+
+#Reset button will clear the markers, route and clear the textboxes.
